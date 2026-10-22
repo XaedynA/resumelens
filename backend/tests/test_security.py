@@ -43,3 +43,14 @@ def test_history_privacy_and_delete(client):
     assert 'requirements' not in json.loads(result)
     assert client.delete('/api/history').status_code==204
     assert client.get('/api/history').json()==[]
+
+
+def test_public_demo_blocks_shared_history(client, monkeypatch):
+    monkeypatch.setattr(main, 'PUBLIC_DEMO', True)
+    monkeypatch.setattr(main, 'connect', lambda: pytest.fail('Demo must not open history database'))
+    assert client.get('/api/history').json() == []
+    assert client.delete('/api/history').status_code == 403
+    payload = {'resume_text': 'Python', 'job_description': 'Python', 'save': True}
+    assert client.post('/api/analyze', json=payload).status_code == 403
+    payload['save'] = False
+    assert client.post('/api/analyze', json=payload).status_code == 200

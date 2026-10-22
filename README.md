@@ -93,3 +93,7 @@ PDFs are limited to 50 pages; DOCX expanded content to 10 MB and 1,000 ZIP entri
 Set `VITE_API_URL` before building to point to another backend. The default is `http://127.0.0.1:8000`. CORS allows the two local Vite origins. Do not expose the unauthenticated history API publicly.
 
 CI runs backend regression tests on Python 3.11/3.12 and builds the React frontend with Node 22. JUnit and coverage reports are retained for 14 days. The suite covers malformed documents, blank and oversized input, zipped expansion limits, DOCX tables, opt-in storage and deletion.
+
+## Public deployment
+
+Set backend `PUBLIC_DEMO=true` and frontend build variable `VITE_PUBLIC_DEMO=true` to disable shared history. Set `ALLOWED_ORIGINS` to the exact frontend HTTPS origin and `VITE_API_URL` to the backend HTTPS origin. Use sample documents for a public portfolio demo. Run the API with `uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT`. Build the frontend with `npm ci --prefix frontend && npm run build --prefix frontend`; publish `frontend/dist`.
