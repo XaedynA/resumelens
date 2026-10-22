@@ -12,11 +12,11 @@ def client(monkeypatch, tmp_path):
     with TestClient(main.app) as c:
         yield c
 
-@pytest.mark.parametrize('value', ['', ' ', '\n\t', 'x'*100001])
+@pytest.mark.parametrize('value', ['', ' ', '\n\t', 'x'*100001], ids=['empty', 'spaces', 'whitespace', 'over-limit'])
 def test_invalid_input(client, value):
     assert client.post('/api/analyze', json={'resume_text':value,'job_description':'Python'}).status_code == 422
 
-@pytest.mark.parametrize('name,data,status', [('x.exe', b'bad',400), ('x.pdf',b'bad',422), ('x.txt',b'\xff',422), ('x.txt',b' ',422), ('x.txt',b'x'*2097153,413), ('x.txt',b'x'*100001,422)])
+@pytest.mark.parametrize('name,data,status', [('x.exe', b'bad',400), ('x.pdf',b'bad',422), ('x.txt',b'\xff',422), ('x.txt',b' ',422), ('x.txt',b'x'*2097153,413), ('x.txt',b'x'*100001,422)], ids=['unsupported-type', 'invalid-pdf', 'invalid-utf8', 'blank-text', 'file-too-large', 'text-too-long'])
 def test_invalid_uploads(client,name,data,status):
     assert client.post('/api/extract',files={'file':(name,data)}).status_code == status
 
