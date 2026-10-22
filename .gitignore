@@ -8,3 +8,10 @@ __pycache__/
 *.db
 .env
 .DS_Store
+
+.coverage
+coverage.xml
+junit.xml
+artifacts/
+.pytest_cache/
+__pycache__/

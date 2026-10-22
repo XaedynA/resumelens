@@ -1,5 +1,6 @@
 # ResumeLens — Resume Analyzer
 
+![Quality checks](https://github.com/XaedynA/resumelens/actions/workflows/tests.yml/badge.svg)
 A local-first full-stack resume matching portfolio project built with **React, FastAPI, Python, and SQLite**.
 
 ![Stack](https://img.shields.io/badge/React-FastAPI-89e4b3)
@@ -8,7 +9,7 @@ A local-first full-stack resume matching portfolio project built with **React, F
 - Upload a resume as PDF, DOCX, or TXT, or paste plain text.
 - Paste a job description and receive transparent, evidence-linked requirement coverage.
 - See matching skills, potential gaps, source passages from both texts, and actionable resume suggestions.
-- Optional SQLite history (stores job title, score, and result summary; **not resume text**).
+- Optional SQLite history (stores job title, score, coverage, and matched/missing skill names; **no source passages in new records**).
 - Automated Python tests with GitHub Actions.
 - Modern responsive dashboard.
 
@@ -16,7 +17,7 @@ A local-first full-stack resume matching portfolio project built with **React, F
 
 ## Requirements
 - Python **3.10+** (3.12 recommended)
-- Node.js **18+** and npm
+- Node.js **22.12+** and npm
 
 ## Quick start
 
@@ -34,7 +35,7 @@ Open **Terminal 2**:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -53,7 +54,7 @@ python -m pytest -v
 `frontend/` React + Vite UI → `backend/app/main.py` FastAPI → `backend/app/analyzer.py` matching engine → optional SQLite database.
 
 ## Privacy
-Files are parsed on your local backend. Only save if you select the history checkbox. History stores analysis results and job title, not raw resumes. Avoid uploading sensitive documents to a deployed public instance without adding authentication, retention policies, and security controls.
+Files are parsed on your local backend. Only save if you select the history checkbox. New history records store job title, score, coverage, and skill names, without source passages. Earlier versions saved evidence excerpts: existing databases may still contain resume text. Clear history with `DELETE /api/history` to remove old records; backups may retain copies. Avoid uploading sensitive documents to a deployed public instance without adding authentication, retention policies, and security controls.
 
 ## Limitations
 - Scanned PDFs without selectable text are not supported.
@@ -76,3 +77,19 @@ Files are parsed on your local backend. Only save if you select the history chec
 
 ## License
 MIT
+
+## API reliability and validation
+
+| Route | Behavior |
+| --- | --- |
+| `GET /api/health` | Local health check |
+| `POST /api/analyze` | Rejects blank inputs and text over 100,000 characters; saving is opt-in |
+| `POST /api/extract` | PDF, DOCX and UTF-8 TXT; 2 MB file limit; rejects invalid/empty/oversized extraction |
+| `GET /api/history` | Latest 50 summaries |
+| `DELETE /api/history` | Deletes all local history records |
+
+PDFs are limited to 50 pages; DOCX expanded content to 10 MB and 1,000 ZIP entries. Table cells are extracted from DOCX resumes. Parsing runs in a worker thread to keep the event loop responsive. PDF parsing is not a sandbox: only use trusted local documents; a hosted service needs isolated workers, CPU/memory limits, authentication, request-body limits at the proxy, and quotas.
+
+Set `VITE_API_URL` before building to point to another backend. The default is `http://127.0.0.1:8000`. CORS allows the two local Vite origins. Do not expose the unauthenticated history API publicly.
+
+CI runs backend regression tests on Python 3.11/3.12 and builds the React frontend with Node 22. JUnit and coverage reports are retained for 14 days. The suite covers malformed documents, blank and oversized input, zipped expansion limits, DOCX tables, opt-in storage and deletion.
