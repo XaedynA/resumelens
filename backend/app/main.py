@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from .analyzer import analyze
 
 DB = Path(os.getenv("RESUME_DB_PATH", str(Path(__file__).resolve().parent.parent / "history.sqlite3")))
+PUBLIC_DEMO = os.getenv("PUBLIC_DEMO", "false").lower() == "true"
 MAX_BYTES = 2 * 1024 * 1024
 
 def connect():
@@ -21,6 +22,9 @@ def connect():
 
 @asynccontextmanager
 async def lifespan(app):
+    if PUBLIC_DEMO:
+        yield
+        return
     with closing(connect()) as db:
         db.execute("""CREATE TABLE IF NOT EXISTS analyses (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +35,7 @@ async def lifespan(app):
     yield
 
 app = FastAPI(title="ResumeLens API", version="1.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if x.strip()],
                    allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
 class AnalysisRequest(BaseModel):
@@ -57,10 +61,12 @@ def save_result(title, result):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "history_enabled": not PUBLIC_DEMO}
 
 @app.post("/api/analyze")
 def analyze_text(payload: AnalysisRequest):
+    if PUBLIC_DEMO and payload.save:
+        raise HTTPException(403, "History is disabled on this public demo.")
     result = analyze(payload.resume_text, payload.job_description)
     if payload.save:
         save_result(payload.job_title, result)
@@ -80,12 +86,16 @@ def extract(file: UploadFile = File(...)):
 
 @app.get("/api/history")
 def history():
+    if PUBLIC_DEMO:
+        return []
     with closing(connect()) as db:
         rows = db.execute("SELECT id, created_at, job_title, score FROM analyses ORDER BY id DESC LIMIT 50").fetchall()
     return [dict(row) for row in rows]
 
 @app.delete("/api/history", status_code=204)
 def clear_history():
+    if PUBLIC_DEMO:
+        raise HTTPException(403, "History is disabled on this public demo.")
     with closing(connect()) as db:
         db.execute("DELETE FROM analyses")
         db.commit()
